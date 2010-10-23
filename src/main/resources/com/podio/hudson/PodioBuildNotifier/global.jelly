@@ -1,0 +1,14 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
+         xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <f:section title="Podio Build">
+    <f:entry title="API hostname">
+      <f:textbox name="podio.hostname" value="${descriptor.hostname}"/>
+    </f:entry>
+    <f:entry title="API port">
+      <f:textbox name="podio.api" value="${descriptor.port}"/>
+    </f:entry>
+    <f:entry title="API SSL">
+      <f:textbox name="podio.ssl" value="${descriptor.ssl}"/>
+    </f:entry>
+  </f:section>
+</j:jelly>
