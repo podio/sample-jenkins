@@ -1,6 +1,9 @@
 package com.podio.hudson;
 
 import hudson.Extension;
+import hudson.Launcher;
+import hudson.model.BuildListener;
+import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
@@ -22,7 +25,10 @@ import org.kohsuke.stapler.StaplerRequest;
 import com.podio.BaseAPI;
 import com.podio.oauth.OAuthClientCredentials;
 import com.podio.oauth.OAuthUsernameCredentials;
-import com.podio.org.OrgAPI;
+import com.podio.root.RootAPI;
+import com.podio.root.SystemStatus;
+import com.podio.space.SpaceAPI;
+import com.podio.space.SpaceWithOrganization;
 import com.sun.jersey.api.client.UniformInterfaceException;
 
 public class PodioBuildNotifier extends Notifier {
@@ -32,16 +38,18 @@ public class PodioBuildNotifier extends Notifier {
 
 	private final String username;
 	private final String password;
-	private final int appId;
-
-	private static final OAuthClientCredentials CLIENT_CREDENTIALS = new OAuthClientCredentials(
-			"dev@hoisthq.com", "CmACRWF1WBOTDfOa20A");
+	private final String clientId;
+	private final String clientSecret;
+	private final String spaceURL;
 
 	@DataBoundConstructor
-	public PodioBuildNotifier(String username, String password, int appId) {
+	public PodioBuildNotifier(String username, String password,
+			String clientId, String clientSecret, String spaceURL) {
 		this.username = username;
 		this.password = password;
-		this.appId = appId;
+		this.clientId = clientId;
+		this.clientSecret = clientSecret;
+		this.spaceURL = spaceURL;
 	}
 
 	public String getUsername() {
@@ -52,12 +60,28 @@ public class PodioBuildNotifier extends Notifier {
 		return password;
 	}
 
-	public int getAppId() {
-		return appId;
+	public String getClientId() {
+		return clientId;
+	}
+
+	public String getClientSecret() {
+		return clientSecret;
+	}
+
+	public String getSpaceURL() {
+		return spaceURL;
 	}
 
 	public BuildStepMonitor getRequiredMonitorService() {
 		return BuildStepMonitor.BUILD;
+	}
+
+	@Override
+	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
+			BuildListener listener) throws InterruptedException, IOException {
+		System.out.println(build.getResult().toString());
+
+		return true;
 	}
 
 	@Extension
@@ -83,28 +107,64 @@ public class PodioBuildNotifier extends Notifier {
 		@Override
 		public boolean configure(StaplerRequest req, JSONObject formData)
 				throws FormException {
-			req.bindParameters(this, "podio.");
+			req.bindParameters(this);
 			save();
 			return super.configure(req, formData);
 		}
 
-		private BaseAPI getBaseAPI(String username, String password) {
-			return new BaseAPI(hostname, port, ssl, CLIENT_CREDENTIALS,
-					new OAuthUsernameCredentials(username, password));
-		}
-
-		public FormValidation doValidate(
+		public FormValidation doValidateAuth(
 				@QueryParameter("username") final String username,
-				@QueryParameter("password") final String password)
+				@QueryParameter("password") final String password,
+				@QueryParameter("clientId") final String clientId,
+				@QueryParameter("clientSecret") final String clientSecret,
+				@QueryParameter("spaceURL") final String spaceURL)
 				throws IOException, ServletException {
-			BaseAPI baseAPI = getBaseAPI(username, password);
-			OrgAPI orgAPI = new OrgAPI(baseAPI);
+			BaseAPI baseAPI = new BaseAPI(hostname, port, ssl, false,
+					new OAuthClientCredentials(clientId, clientSecret),
+					new OAuthUsernameCredentials(username, password));
+
 			try {
-				orgAPI.getOrganizations();
-				return FormValidation.ok("Username and password validated");
+				SpaceWithOrganization space = new SpaceAPI(baseAPI)
+						.getByURL(spaceURL);
+				return FormValidation.ok("Connection ok, using space "
+						+ space.getName() + " in organization "
+						+ space.getOrganization().getName());
 			} catch (UniformInterfaceException e) {
+				if (e.getResponse().getStatus() == 404) {
+					return FormValidation.error("No space found with the URL "
+							+ spaceURL);
+				} else {
+					return FormValidation.error("Invalid username or password");
+				}
+			} catch (Exception e) {
 				e.printStackTrace();
 				return FormValidation.error("Invalid username or password");
+			}
+		}
+
+		public FormValidation doValidateAPI(
+				@QueryParameter("hostname") final String hostname,
+				@QueryParameter("port") final String port,
+				@QueryParameter("ssl") final boolean ssl) throws IOException,
+				ServletException {
+			int portInt;
+			try {
+				portInt = Integer.parseInt(port);
+			} catch (NumberFormatException e) {
+				return FormValidation.error("Port must be an integer");
+			}
+
+			BaseAPI baseAPI = new BaseAPI(hostname, portInt, ssl, false, null,
+					null);
+
+			try {
+				SystemStatus status = new RootAPI(baseAPI).getStatus();
+				return FormValidation
+						.ok("Connection validated, running API version "
+								+ status.getVersion());
+			} catch (Exception e) {
+				e.printStackTrace();
+				return FormValidation.error("Invalid hostname, port or ssl");
 			}
 		}
 

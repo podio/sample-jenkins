@@ -5,7 +5,16 @@
   <f:entry title="${%Password}" field="password">
     <f:password />
   </f:entry>
+    <f:entry title="${%Client Id}" field="clientId">
+      <f:textbox/>
+    </f:entry>
+    <f:entry title="${%Client secret}" field="clientSecret">
+      <f:password/>
+    </f:entry>
+    <f:entry title="${%Space URL}" field="spaceURL">
+      <f:textbox/>
+    </f:entry>
   <f:validateButton
    title="${%Validate}" progress="${%Testing...}"
-   method="validate" with="username,password" />
+   method="validateAuth" with="username,password,clientId,clientSecret,spaceURL" />
 </j:jelly>
