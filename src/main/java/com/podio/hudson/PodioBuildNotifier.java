@@ -5,6 +5,9 @@ import hudson.Launcher;
 import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
+import hudson.model.User;
+import hudson.scm.ChangeLogSet;
+import hudson.scm.ChangeLogSet.Entry;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
@@ -12,17 +15,23 @@ import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 
 import net.sf.json.JSONObject;
 
+import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 import com.podio.BaseAPI;
+import com.podio.contact.ContactAPI;
+import com.podio.contact.Profile;
 import com.podio.oauth.OAuthClientCredentials;
 import com.podio.oauth.OAuthUsernameCredentials;
 import com.podio.root.RootAPI;
@@ -76,12 +85,69 @@ public class PodioBuildNotifier extends Notifier {
 		return BuildStepMonitor.BUILD;
 	}
 
+	private BaseAPI getBaseAPI() {
+		DescriptorImpl descriptor = (DescriptorImpl) getDescriptor();
+
+		return new BaseAPI(descriptor.hostname, descriptor.port,
+				descriptor.ssl, false, new OAuthClientCredentials(clientId,
+						clientSecret), new OAuthUsernameCredentials(username,
+						password));
+	}
+
 	@Override
 	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
 			BuildListener listener) throws InterruptedException, IOException {
-		System.out.println(build.getResult().toString());
+		BaseAPI baseAPI = getBaseAPI();
+
+		String result = StringUtils.capitalise(build.getResult().toString());
+		result = result.replace('_', ' ');
+		SpaceWithOrganization space = getSpace(baseAPI);
+		List<Integer> userIds = getUserIds(baseAPI, space.getId(), build);
 
 		return true;
+	}
+
+	private SpaceWithOrganization getSpace(BaseAPI baseAPI) {
+		return new SpaceAPI(baseAPI).getByURL(spaceURL);
+	}
+
+	private List<Integer> getUserIds(BaseAPI baseAPI, int spaceId,
+			AbstractBuild<?, ?> build) {
+		List<Integer> userIds = new ArrayList<Integer>();
+
+		Set<User> culprits = build.getCulprits();
+		ChangeLogSet<? extends Entry> changeSet = build.getChangeSet();
+		if (culprits.size() > 0) {
+			for (User culprit : culprits) {
+				System.out.println("Looking for user " + culprit);
+				Integer userId = getUserId(baseAPI, spaceId, culprit);
+				System.out.println("Found " + userId);
+				if (userId != null) {
+					userIds.add(userId);
+				}
+			}
+		} else if (changeSet != null) {
+			for (Entry entry : changeSet) {
+				System.out.println("Looking for user " + entry.getAuthor());
+				Integer userId = getUserId(baseAPI, spaceId, entry.getAuthor());
+				System.out.println("Found " + userId);
+				if (userId != null) {
+					userIds.add(userId);
+				}
+			}
+		}
+
+		return userIds;
+	}
+
+	private Integer getUserId(BaseAPI baseAPI, int spaceId, User user) {
+		List<Profile> contacts = new ContactAPI(baseAPI).getSpaceContacts(
+				spaceId, "mail", user.getId(), 1, null, "mini", null);
+		if (contacts.isEmpty()) {
+			return null;
+		}
+
+		return contacts.get(0).getUserId();
 	}
 
 	@Extension
