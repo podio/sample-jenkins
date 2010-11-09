@@ -31,13 +31,15 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import com.podio.BaseAPI;
 import com.podio.contact.ContactAPI;
-import com.podio.contact.Profile;
+import com.podio.contact.ProfileField;
+import com.podio.contact.ProfileType;
 import com.podio.oauth.OAuthClientCredentials;
 import com.podio.oauth.OAuthUsernameCredentials;
 import com.podio.root.RootAPI;
 import com.podio.root.SystemStatus;
 import com.podio.space.SpaceAPI;
 import com.podio.space.SpaceWithOrganization;
+import com.podio.user.UserMini;
 import com.sun.jersey.api.client.UniformInterfaceException;
 
 public class PodioBuildNotifier extends Notifier {
@@ -141,13 +143,14 @@ public class PodioBuildNotifier extends Notifier {
 	}
 
 	private Integer getUserId(BaseAPI baseAPI, int spaceId, User user) {
-		List<Profile> contacts = new ContactAPI(baseAPI).getSpaceContacts(
-				spaceId, "mail", user.getId(), 1, null, "mini", null);
+		List<UserMini> contacts = new ContactAPI(baseAPI).getSpaceContacts(
+				spaceId, ProfileField.MAIL, user.getId(), 1, null,
+				ProfileType.MINI, null);
 		if (contacts.isEmpty()) {
 			return null;
 		}
 
-		return contacts.get(0).getUserId();
+		return contacts.get(0).getId();
 	}
 
 	@Extension
