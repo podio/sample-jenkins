@@ -68,6 +68,8 @@ public class PodioBuildNotifier extends Notifier {
 
 	private static final int BUILD_NUMBER_FIELD_ID = 74278;
 
+	private static final int DURATION_FIELD_ID = 74671;
+
 	private static final int APP_ID = 13658;
 
 	protected static final Logger LOGGER = Logger
@@ -147,16 +149,17 @@ public class PodioBuildNotifier extends Notifier {
 		}
 
 		postBuild(baseAPI, build.getNumber(), result, url, userIds,
-				totalTestCases, failedTestCases);
+				totalTestCases, failedTestCases, build.getDurationString());
 
 		return true;
 	}
 
 	private void postBuild(BaseAPI baseAPI, int buildNumber, String result,
 			String url, List<Integer> userIds, Integer totalTestCases,
-			Integer failedTestCases) {
+			Integer failedTestCases, String duration) {
 		List<FieldValues> fields = new ArrayList<FieldValues>();
-		fields.add(new FieldValues(BUILD_NUMBER_FIELD_ID, "value", "Build " + buildNumber));
+		fields.add(new FieldValues(BUILD_NUMBER_FIELD_ID, "value", "Build "
+				+ buildNumber));
 		fields.add(new FieldValues(RESULT_FIELD_ID, "value", result));
 		fields.add(new FieldValues(URL_FIELD_ID, "value", url));
 		List<Map<String, Object>> subValues = new ArrayList<Map<String, Object>>();
@@ -166,11 +169,14 @@ public class PodioBuildNotifier extends Notifier {
 		}
 		fields.add(new FieldValues(USERS_FIELD_ID, subValues));
 		if (totalTestCases != null) {
-			fields.add(new FieldValues(TOTAL_TESTS_FIELD_ID, "value", totalTestCases));
+			fields.add(new FieldValues(TOTAL_TESTS_FIELD_ID, "value",
+					totalTestCases));
 		}
 		if (failedTestCases != null) {
-			fields.add(new FieldValues(FAILED_TESTS_FIELD_ID, "value", failedTestCases));
+			fields.add(new FieldValues(FAILED_TESTS_FIELD_ID, "value",
+					failedTestCases));
 		}
+		fields.add(new FieldValues(DURATION_FIELD_ID, "value", duration));
 		ItemCreate create = new ItemCreate(Integer.toString(buildNumber),
 				fields, Collections.<Integer> emptyList(),
 				Collections.<String> emptyList());
@@ -186,8 +192,6 @@ public class PodioBuildNotifier extends Notifier {
 						new Reference(ReferenceType.ITEM, itemId));
 			}
 		}
-
-		LOGGER.info(Integer.toString(itemId));
 	}
 
 	private SpaceWithOrganization getSpace(BaseAPI baseAPI) {
