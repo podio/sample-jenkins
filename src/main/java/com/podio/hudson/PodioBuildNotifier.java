@@ -12,6 +12,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
+import hudson.tasks.test.AbstractTestResultAction;
 import hudson.util.FormValidation;
 
 import java.io.IOException;
@@ -116,8 +117,13 @@ public class PodioBuildNotifier extends Notifier {
 		LOGGER.info(space.getName());
 		List<Integer> userIds = getUserIds(baseAPI, space.getId(), build);
 
-		int totalTestCases = build.getTestResultAction().getTotalCount();
-		int failedTestCases = build.getTestResultAction().getFailCount();
+		Integer totalTestCases = null;
+		Integer failedTestCases = null;
+		AbstractTestResultAction testResult = build.getTestResultAction();
+		if (testResult != null) {
+			totalTestCases = testResult.getTotalCount();
+			failedTestCases = testResult.getFailCount();
+		}
 
 		postBuild(baseAPI, build.getNumber(), result, userIds, totalTestCases,
 				failedTestCases);
@@ -126,7 +132,8 @@ public class PodioBuildNotifier extends Notifier {
 	}
 
 	private void postBuild(BaseAPI baseAPI, int buildNumber, String result,
-			List<Integer> userIds, int totalTestCases, int failedTestCases) {
+			List<Integer> userIds, Integer totalTestCases,
+			Integer failedTestCases) {
 		List<FieldValues> fields = new ArrayList<FieldValues>();
 		fields.add(new FieldValues(74278, "value", Integer
 				.toString(buildNumber)));
@@ -137,8 +144,12 @@ public class PodioBuildNotifier extends Notifier {
 					userId));
 		}
 		fields.add(new FieldValues(74280, subValues));
-		fields.add(new FieldValues(74279, "value", totalTestCases));
-		fields.add(new FieldValues(74279, "value", failedTestCases));
+		if (totalTestCases != null) {
+			fields.add(new FieldValues(74279, "value", totalTestCases));
+		}
+		if (failedTestCases != null) {
+			fields.add(new FieldValues(74279, "value", failedTestCases));
+		}
 		ItemCreate create = new ItemCreate(Integer.toString(buildNumber),
 				fields, Collections.<Integer> emptyList(),
 				Collections.<String> emptyList());
@@ -219,6 +230,9 @@ public class PodioBuildNotifier extends Notifier {
 		public boolean configure(StaplerRequest req, JSONObject formData)
 				throws FormException {
 			req.bindParameters(this);
+			this.hostname = formData.getString("hostname");
+			this.port = formData.getInt("port");
+			this.ssl = formData.getBoolean("ssl");
 			save();
 			return super.configure(req, formData);
 		}
