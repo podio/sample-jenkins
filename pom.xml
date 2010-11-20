@@ -10,7 +10,7 @@
 
 	<groupId>com.podio</groupId>
 	<artifactId>podio-publisher</artifactId>
-	<version>0.0.3</version>
+	<version>0.0.3-SNAPSHOT</version>
 	<packaging>hpi</packaging>
 
 	<!-- get every artifact through maven.glassfish.org, which proxies all the 

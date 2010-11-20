@@ -16,7 +16,9 @@ import hudson.util.FormValidation;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -33,6 +35,9 @@ import com.podio.BaseAPI;
 import com.podio.contact.ContactAPI;
 import com.podio.contact.ProfileField;
 import com.podio.contact.ProfileType;
+import com.podio.item.FieldValues;
+import com.podio.item.ItemAPI;
+import com.podio.item.ItemCreate;
 import com.podio.oauth.OAuthClientCredentials;
 import com.podio.oauth.OAuthUsernameCredentials;
 import com.podio.root.RootAPI;
@@ -61,6 +66,8 @@ public class PodioBuildNotifier extends Notifier {
 		this.clientId = clientId;
 		this.clientSecret = clientSecret;
 		this.spaceURL = spaceURL;
+
+		LOGGER.info(username);
 	}
 
 	public String getUsername() {
@@ -90,23 +97,56 @@ public class PodioBuildNotifier extends Notifier {
 	private BaseAPI getBaseAPI() {
 		DescriptorImpl descriptor = (DescriptorImpl) getDescriptor();
 
-		return new BaseAPI(descriptor.hostname, descriptor.port,
-				descriptor.ssl, false, new OAuthClientCredentials(clientId,
-						clientSecret), new OAuthUsernameCredentials(username,
-						password));
+		return new BaseAPI(descriptor.hostname, descriptor.hostname,
+				descriptor.port, descriptor.ssl, false,
+				new OAuthClientCredentials(clientId, clientSecret),
+				new OAuthUsernameCredentials(username, password));
 	}
 
 	@Override
 	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
 			BuildListener listener) throws InterruptedException, IOException {
+		LOGGER.info("Build complete");
 		BaseAPI baseAPI = getBaseAPI();
 
-		String result = StringUtils.capitalise(build.getResult().toString());
+		String result = StringUtils.capitalize(build.getResult().toString());
 		result = result.replace('_', ' ');
+		LOGGER.info(result);
 		SpaceWithOrganization space = getSpace(baseAPI);
+		LOGGER.info(space.getName());
 		List<Integer> userIds = getUserIds(baseAPI, space.getId(), build);
 
+		int totalTestCases = build.getTestResultAction().getTotalCount();
+		int failedTestCases = build.getTestResultAction().getFailCount();
+
+		postBuild(baseAPI, build.getNumber(), result, userIds, totalTestCases,
+				failedTestCases);
+
 		return true;
+	}
+
+	private void postBuild(BaseAPI baseAPI, int buildNumber, String result,
+			List<Integer> userIds, int totalTestCases, int failedTestCases) {
+		List<FieldValues> fields = new ArrayList<FieldValues>();
+		fields.add(new FieldValues(74278, "value", Integer
+				.toString(buildNumber)));
+		fields.add(new FieldValues(74279, "value", result));
+		List<Map<String, Object>> subValues = new ArrayList<Map<String, Object>>();
+		for (Integer userId : userIds) {
+			subValues.add(Collections.<String, Object> singletonMap("value",
+					userId));
+		}
+		fields.add(new FieldValues(74280, subValues));
+		fields.add(new FieldValues(74279, "value", totalTestCases));
+		fields.add(new FieldValues(74279, "value", failedTestCases));
+		ItemCreate create = new ItemCreate(Integer.toString(buildNumber),
+				fields, Collections.<Integer> emptyList(),
+				Collections.<String> emptyList());
+
+		ItemAPI itemAPI = new ItemAPI(baseAPI);
+		int itemId = itemAPI.addItem(13658, create, true).getItemId();
+
+		LOGGER.info(Integer.toString(itemId));
 	}
 
 	private SpaceWithOrganization getSpace(BaseAPI baseAPI) {
@@ -121,23 +161,25 @@ public class PodioBuildNotifier extends Notifier {
 		ChangeLogSet<? extends Entry> changeSet = build.getChangeSet();
 		if (culprits.size() > 0) {
 			for (User culprit : culprits) {
-				System.out.println("Looking for user " + culprit);
+				LOGGER.info("Looking for user " + culprit);
 				Integer userId = getUserId(baseAPI, spaceId, culprit);
-				System.out.println("Found " + userId);
+				LOGGER.info("Found " + userId);
 				if (userId != null) {
 					userIds.add(userId);
 				}
 			}
 		} else if (changeSet != null) {
 			for (Entry entry : changeSet) {
-				System.out.println("Looking for user " + entry.getAuthor());
+				LOGGER.info("Looking for user " + entry.getAuthor());
 				Integer userId = getUserId(baseAPI, spaceId, entry.getAuthor());
-				System.out.println("Found " + userId);
+				LOGGER.info("Found " + userId);
 				if (userId != null) {
 					userIds.add(userId);
 				}
 			}
 		}
+
+		LOGGER.info(userIds.toString());
 
 		return userIds;
 	}
@@ -188,7 +230,7 @@ public class PodioBuildNotifier extends Notifier {
 				@QueryParameter("clientSecret") final String clientSecret,
 				@QueryParameter("spaceURL") final String spaceURL)
 				throws IOException, ServletException {
-			BaseAPI baseAPI = new BaseAPI(hostname, port, ssl, false,
+			BaseAPI baseAPI = new BaseAPI(hostname, hostname, port, ssl, false,
 					new OAuthClientCredentials(clientId, clientSecret),
 					new OAuthUsernameCredentials(username, password));
 
@@ -223,8 +265,8 @@ public class PodioBuildNotifier extends Notifier {
 				return FormValidation.error("Port must be an integer");
 			}
 
-			BaseAPI baseAPI = new BaseAPI(hostname, portInt, ssl, false, null,
-					null);
+			BaseAPI baseAPI = new BaseAPI(hostname, hostname, portInt, ssl,
+					false, null, null);
 
 			try {
 				SystemStatus status = new RootAPI(baseAPI).getStatus();
