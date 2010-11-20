@@ -4,12 +4,13 @@
 	<parent>
 		<groupId>org.jvnet.hudson.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.381</version>
+		<version>1.385</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
 	<groupId>com.podio</groupId>
 	<artifactId>podio-publisher</artifactId>
+	<name>Podio Build</name>
 	<version>0.0.3-SNAPSHOT</version>
 	<packaging>hpi</packaging>
 

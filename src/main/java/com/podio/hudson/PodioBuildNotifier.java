@@ -12,6 +12,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
+import hudson.tasks.Mailer;
 import hudson.tasks.test.AbstractTestResultAction;
 import hudson.util.FormValidation;
 
@@ -28,11 +29,14 @@ import javax.servlet.ServletException;
 import net.sf.json.JSONObject;
 
 import org.apache.commons.lang.StringUtils;
+import org.joda.time.LocalDate;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 import com.podio.BaseAPI;
+import com.podio.common.Reference;
+import com.podio.common.ReferenceType;
 import com.podio.contact.ContactAPI;
 import com.podio.contact.ProfileField;
 import com.podio.contact.ProfileType;
@@ -45,6 +49,8 @@ import com.podio.root.RootAPI;
 import com.podio.root.SystemStatus;
 import com.podio.space.SpaceAPI;
 import com.podio.space.SpaceWithOrganization;
+import com.podio.task.TaskAPI;
+import com.podio.task.TaskCreate;
 import com.podio.user.UserMini;
 import com.sun.jersey.api.client.UniformInterfaceException;
 
@@ -110,11 +116,12 @@ public class PodioBuildNotifier extends Notifier {
 		LOGGER.info("Build complete");
 		BaseAPI baseAPI = getBaseAPI();
 
-		String result = StringUtils.capitalize(build.getResult().toString());
+		String result = StringUtils.capitalize(build.getResult().toString()
+				.toLowerCase());
 		result = result.replace('_', ' ');
-		LOGGER.info(result);
 		SpaceWithOrganization space = getSpace(baseAPI);
-		LOGGER.info(space.getName());
+		String url = Mailer.descriptor().getUrl() + build.getParent().getUrl()
+				+ build.getNumber();
 		List<Integer> userIds = getUserIds(baseAPI, space.getId(), build);
 
 		Integer totalTestCases = null;
@@ -125,19 +132,19 @@ public class PodioBuildNotifier extends Notifier {
 			failedTestCases = testResult.getFailCount();
 		}
 
-		postBuild(baseAPI, build.getNumber(), result, userIds, totalTestCases,
-				failedTestCases);
+		postBuild(baseAPI, build.getNumber(), result, url, userIds,
+				totalTestCases, failedTestCases);
 
 		return true;
 	}
 
 	private void postBuild(BaseAPI baseAPI, int buildNumber, String result,
-			List<Integer> userIds, Integer totalTestCases,
+			String url, List<Integer> userIds, Integer totalTestCases,
 			Integer failedTestCases) {
 		List<FieldValues> fields = new ArrayList<FieldValues>();
-		fields.add(new FieldValues(74278, "value", Integer
-				.toString(buildNumber)));
+		fields.add(new FieldValues(74278, "value", "Build " + buildNumber));
 		fields.add(new FieldValues(74279, "value", result));
+		fields.add(new FieldValues(74670, "value", url));
 		List<Map<String, Object>> subValues = new ArrayList<Map<String, Object>>();
 		for (Integer userId : userIds) {
 			subValues.add(Collections.<String, Object> singletonMap("value",
@@ -156,6 +163,15 @@ public class PodioBuildNotifier extends Notifier {
 
 		ItemAPI itemAPI = new ItemAPI(baseAPI);
 		int itemId = itemAPI.addItem(13658, create, true).getItemId();
+
+		if (result != "Success") {
+			TaskAPI taskAPI = new TaskAPI(baseAPI);
+			for (Integer userId : userIds) {
+				taskAPI.createTaskWithReference(new TaskCreate(
+						"Fix broken build", false, new LocalDate(), userId),
+						new Reference(ReferenceType.ITEM, itemId));
+			}
+		}
 
 		LOGGER.info(Integer.toString(itemId));
 	}
@@ -179,7 +195,8 @@ public class PodioBuildNotifier extends Notifier {
 					userIds.add(userId);
 				}
 			}
-		} else if (changeSet != null) {
+		}
+		if (changeSet != null) {
 			for (Entry entry : changeSet) {
 				LOGGER.info("Looking for user " + entry.getAuthor());
 				Integer userId = getUserId(baseAPI, spaceId, entry.getAuthor());
@@ -196,9 +213,11 @@ public class PodioBuildNotifier extends Notifier {
 	}
 
 	private Integer getUserId(BaseAPI baseAPI, int spaceId, User user) {
+		String mail = user.getProperty(Mailer.UserProperty.class).getAddress();
+
 		List<UserMini> contacts = new ContactAPI(baseAPI).getSpaceContacts(
-				spaceId, ProfileField.MAIL, user.getId(), 1, null,
-				ProfileType.MINI, null);
+				spaceId, ProfileField.MAIL, mail, 1, null, ProfileType.MINI,
+				null);
 		if (contacts.isEmpty()) {
 			return null;
 		}
