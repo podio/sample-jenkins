@@ -56,6 +56,20 @@ import com.sun.jersey.api.client.UniformInterfaceException;
 
 public class PodioBuildNotifier extends Notifier {
 
+	private static final int FAILED_TESTS_FIELD_ID = 74279;
+
+	private static final int TOTAL_TESTS_FIELD_ID = 74279;
+
+	private static final int USERS_FIELD_ID = 74280;
+
+	private static final int URL_FIELD_ID = 74670;
+
+	private static final int RESULT_FIELD_ID = 74279;
+
+	private static final int BUILD_NUMBER_FIELD_ID = 74278;
+
+	private static final int APP_ID = 13658;
+
 	protected static final Logger LOGGER = Logger
 			.getLogger(PodioBuildNotifier.class.getName());
 
@@ -142,27 +156,27 @@ public class PodioBuildNotifier extends Notifier {
 			String url, List<Integer> userIds, Integer totalTestCases,
 			Integer failedTestCases) {
 		List<FieldValues> fields = new ArrayList<FieldValues>();
-		fields.add(new FieldValues(74278, "value", "Build " + buildNumber));
-		fields.add(new FieldValues(74279, "value", result));
-		fields.add(new FieldValues(74670, "value", url));
+		fields.add(new FieldValues(BUILD_NUMBER_FIELD_ID, "value", "Build " + buildNumber));
+		fields.add(new FieldValues(RESULT_FIELD_ID, "value", result));
+		fields.add(new FieldValues(URL_FIELD_ID, "value", url));
 		List<Map<String, Object>> subValues = new ArrayList<Map<String, Object>>();
 		for (Integer userId : userIds) {
 			subValues.add(Collections.<String, Object> singletonMap("value",
 					userId));
 		}
-		fields.add(new FieldValues(74280, subValues));
+		fields.add(new FieldValues(USERS_FIELD_ID, subValues));
 		if (totalTestCases != null) {
-			fields.add(new FieldValues(74279, "value", totalTestCases));
+			fields.add(new FieldValues(TOTAL_TESTS_FIELD_ID, "value", totalTestCases));
 		}
 		if (failedTestCases != null) {
-			fields.add(new FieldValues(74279, "value", failedTestCases));
+			fields.add(new FieldValues(FAILED_TESTS_FIELD_ID, "value", failedTestCases));
 		}
 		ItemCreate create = new ItemCreate(Integer.toString(buildNumber),
 				fields, Collections.<Integer> emptyList(),
 				Collections.<String> emptyList());
 
 		ItemAPI itemAPI = new ItemAPI(baseAPI);
-		int itemId = itemAPI.addItem(13658, create, true).getItemId();
+		int itemId = itemAPI.addItem(APP_ID, create, true).getItemId();
 
 		if (result != "Success") {
 			TaskAPI taskAPI = new TaskAPI(baseAPI);
