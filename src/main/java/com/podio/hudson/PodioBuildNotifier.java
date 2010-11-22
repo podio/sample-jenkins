@@ -3,8 +3,10 @@ package com.podio.hudson;
 import hudson.Extension;
 import hudson.Launcher;
 import hudson.model.BuildListener;
+import hudson.model.Result;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
+import hudson.model.Run;
 import hudson.model.User;
 import hudson.scm.ChangeLogSet;
 import hudson.scm.ChangeLogSet.Entry;
@@ -43,14 +45,17 @@ import com.podio.contact.ProfileType;
 import com.podio.item.FieldValues;
 import com.podio.item.ItemAPI;
 import com.podio.item.ItemCreate;
+import com.podio.item.ItemsResponse;
 import com.podio.oauth.OAuthClientCredentials;
 import com.podio.oauth.OAuthUsernameCredentials;
 import com.podio.root.RootAPI;
 import com.podio.root.SystemStatus;
 import com.podio.space.SpaceAPI;
 import com.podio.space.SpaceWithOrganization;
+import com.podio.task.Task;
 import com.podio.task.TaskAPI;
 import com.podio.task.TaskCreate;
+import com.podio.task.TaskStatus;
 import com.podio.user.UserMini;
 import com.sun.jersey.api.client.UniformInterfaceException;
 
@@ -148,13 +153,64 @@ public class PodioBuildNotifier extends Notifier {
 			failedTestCases = testResult.getFailCount();
 		}
 
-		postBuild(baseAPI, build.getNumber(), result, url, userIds,
-				totalTestCases, failedTestCases, build.getDurationString());
+		int itemId = postBuild(baseAPI, build.getNumber(), result, url,
+				userIds, totalTestCases, failedTestCases,
+				build.getDurationString());
+
+		AbstractBuild previousBuild = build.getPreviousBuild();
+		boolean oldFailed = previousBuild != null
+				&& previousBuild.getResult() != Result.SUCCESS;
+
+		TaskAPI taskAPI = new TaskAPI(baseAPI);
+		if (oldFailed && build.getResult() == Result.SUCCESS) {
+			Run firstFailed = getFirstFailure(previousBuild);
+			Integer firstFailedItemId = getItemId(baseAPI,
+					firstFailed.getNumber());
+			if (firstFailedItemId != null) {
+				List<Task> tasks = taskAPI.getTasksWithReference(new Reference(
+						ReferenceType.ITEM, firstFailedItemId));
+				for (Task task : tasks) {
+					if (task.getStatus() == TaskStatus.ACTIVE) {
+						taskAPI.completeTask(task.getId());
+					}
+				}
+			}
+		} else if (!oldFailed && build.getResult() != Result.SUCCESS) {
+			for (Integer userId : userIds) {
+				taskAPI.createTaskWithReference(new TaskCreate(
+						"Fix broken build", false, new LocalDate(), userId),
+						new Reference(ReferenceType.ITEM, itemId));
+			}
+		}
 
 		return true;
 	}
 
-	private void postBuild(BaseAPI baseAPI, int buildNumber, String result,
+	private Run getFirstFailure(Run build) {
+		Run previousBuild = build.getPreviousBuild();
+
+		if (previousBuild != null) {
+			if (previousBuild.getResult() == Result.SUCCESS) {
+				return build;
+			}
+
+			return getFirstFailure(previousBuild);
+		} else {
+			return build;
+		}
+	}
+
+	private Integer getItemId(BaseAPI baseAPI, int buildNumber) {
+		ItemsResponse response = new ItemAPI(baseAPI).getItemsByExternalId(
+				APP_ID, Integer.toString(buildNumber));
+		if (response.getFiltered() != 1) {
+			return null;
+		}
+
+		return response.getItems().get(0).getId();
+	}
+
+	private int postBuild(BaseAPI baseAPI, int buildNumber, String result,
 			String url, List<Integer> userIds, Integer totalTestCases,
 			Integer failedTestCases, String duration) {
 		List<FieldValues> fields = new ArrayList<FieldValues>();
@@ -184,14 +240,7 @@ public class PodioBuildNotifier extends Notifier {
 		ItemAPI itemAPI = new ItemAPI(baseAPI);
 		int itemId = itemAPI.addItem(APP_ID, create, true).getItemId();
 
-		if (result != "Success") {
-			TaskAPI taskAPI = new TaskAPI(baseAPI);
-			for (Integer userId : userIds) {
-				taskAPI.createTaskWithReference(new TaskCreate(
-						"Fix broken build", false, new LocalDate(), userId),
-						new Reference(ReferenceType.ITEM, itemId));
-			}
-		}
+		return itemId;
 	}
 
 	private SpaceWithOrganization getSpace(BaseAPI baseAPI) {
