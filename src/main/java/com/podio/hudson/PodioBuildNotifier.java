@@ -56,9 +56,9 @@ import com.sun.jersey.api.client.UniformInterfaceException;
 
 public class PodioBuildNotifier extends Notifier {
 
-	private static final int FAILED_TESTS_FIELD_ID = 74279;
+	private static final int FAILED_TESTS_FIELD_ID = 74282;
 
-	private static final int TOTAL_TESTS_FIELD_ID = 74279;
+	private static final int TOTAL_TESTS_FIELD_ID = 74281;
 
 	private static final int USERS_FIELD_ID = 74280;
 
