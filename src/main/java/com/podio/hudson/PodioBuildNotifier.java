@@ -15,12 +15,14 @@ import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.tasks.Mailer;
+import hudson.tasks.Mailer.UserProperty;
 import hudson.tasks.test.AbstractTestResultAction;
 import hudson.util.FormValidation;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,6 +62,8 @@ import com.podio.user.UserMini;
 import com.sun.jersey.api.client.UniformInterfaceException;
 
 public class PodioBuildNotifier extends Notifier {
+
+	private static final int CHANGES_FIELD_ID = 74681;
 
 	private static final int FAILED_TESTS_FIELD_ID = 74282;
 
@@ -134,7 +138,6 @@ public class PodioBuildNotifier extends Notifier {
 	@Override
 	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
 			BuildListener listener) throws InterruptedException, IOException {
-		LOGGER.info("Build complete");
 		BaseAPI baseAPI = getBaseAPI();
 
 		String result = StringUtils.capitalize(build.getResult().toString()
@@ -143,7 +146,7 @@ public class PodioBuildNotifier extends Notifier {
 		SpaceWithOrganization space = getSpace(baseAPI);
 		String url = Mailer.descriptor().getUrl() + build.getParent().getUrl()
 				+ build.getNumber();
-		List<Integer> userIds = getUserIds(baseAPI, space.getId(), build);
+		Set<Integer> userIds = getUserIds(baseAPI, space.getId(), build);
 
 		Integer totalTestCases = null;
 		Integer failedTestCases = null;
@@ -153,8 +156,10 @@ public class PodioBuildNotifier extends Notifier {
 			failedTestCases = testResult.getFailCount();
 		}
 
+		String changes = getChangesText(build);
+
 		int itemId = postBuild(baseAPI, build.getNumber(), result, url,
-				userIds, totalTestCases, failedTestCases,
+				changes, userIds, totalTestCases, failedTestCases,
 				build.getDurationString());
 
 		AbstractBuild previousBuild = build.getPreviousBuild();
@@ -211,13 +216,16 @@ public class PodioBuildNotifier extends Notifier {
 	}
 
 	private int postBuild(BaseAPI baseAPI, int buildNumber, String result,
-			String url, List<Integer> userIds, Integer totalTestCases,
-			Integer failedTestCases, String duration) {
+			String url, String changes, Set<Integer> userIds,
+			Integer totalTestCases, Integer failedTestCases, String duration) {
 		List<FieldValues> fields = new ArrayList<FieldValues>();
 		fields.add(new FieldValues(BUILD_NUMBER_FIELD_ID, "value", "Build "
 				+ buildNumber));
 		fields.add(new FieldValues(RESULT_FIELD_ID, "value", result));
 		fields.add(new FieldValues(URL_FIELD_ID, "value", url));
+		if (changes != null) {
+			fields.add(new FieldValues(CHANGES_FIELD_ID, "value", changes));
+		}
 		List<Map<String, Object>> subValues = new ArrayList<Map<String, Object>>();
 		for (Integer userId : userIds) {
 			subValues.add(Collections.<String, Object> singletonMap("value",
@@ -237,50 +245,74 @@ public class PodioBuildNotifier extends Notifier {
 				fields, Collections.<Integer> emptyList(),
 				Collections.<String> emptyList());
 
-		ItemAPI itemAPI = new ItemAPI(baseAPI);
-		int itemId = itemAPI.addItem(APP_ID, create, true).getItemId();
+		int itemId = new ItemAPI(baseAPI).addItem(APP_ID, create, true)
+				.getItemId();
 
 		return itemId;
+	}
+
+	@Override
+	public boolean needsToRunAfterFinalized() {
+		return true;
 	}
 
 	private SpaceWithOrganization getSpace(BaseAPI baseAPI) {
 		return new SpaceAPI(baseAPI).getByURL(spaceURL);
 	}
 
-	private List<Integer> getUserIds(BaseAPI baseAPI, int spaceId,
+	private Set<Integer> getUserIds(BaseAPI baseAPI, int spaceId,
 			AbstractBuild<?, ?> build) {
-		List<Integer> userIds = new ArrayList<Integer>();
+		Set<Integer> userIds = new HashSet<Integer>();
 
 		Set<User> culprits = build.getCulprits();
-		ChangeLogSet<? extends Entry> changeSet = build.getChangeSet();
 		if (culprits.size() > 0) {
 			for (User culprit : culprits) {
-				LOGGER.info("Looking for user " + culprit);
 				Integer userId = getUserId(baseAPI, spaceId, culprit);
-				LOGGER.info("Found " + userId);
 				if (userId != null) {
 					userIds.add(userId);
 				}
 			}
 		}
+		ChangeLogSet<? extends Entry> changeSet = build.getChangeSet();
 		if (changeSet != null) {
 			for (Entry entry : changeSet) {
-				LOGGER.info("Looking for user " + entry.getAuthor());
 				Integer userId = getUserId(baseAPI, spaceId, entry.getAuthor());
-				LOGGER.info("Found " + userId);
 				if (userId != null) {
 					userIds.add(userId);
 				}
 			}
 		}
-
-		LOGGER.info(userIds.toString());
 
 		return userIds;
 	}
 
+	private String getChangesText(AbstractBuild<?, ?> build) {
+		ChangeLogSet<? extends Entry> changeSet = build.getChangeSet();
+		if (changeSet == null || changeSet.isEmptySet()) {
+			return null;
+		}
+
+		String out = "";
+		for (Entry entry : changeSet) {
+			if (out.length() > 0) {
+				out += "\n";
+			}
+
+			out += entry.getMsgAnnotated();
+		}
+
+		return out;
+	}
+
 	private Integer getUserId(BaseAPI baseAPI, int spaceId, User user) {
-		String mail = user.getProperty(Mailer.UserProperty.class).getAddress();
+		UserProperty mailProperty = user.getProperty(Mailer.UserProperty.class);
+		if (mailProperty == null) {
+			return null;
+		}
+		String mail = mailProperty.getAddress();
+		if (mail == null) {
+			return null;
+		}
 
 		List<UserMini> contacts = new ContactAPI(baseAPI).getSpaceContacts(
 				spaceId, ProfileField.MAIL, mail, 1, null, ProfileType.MINI,
