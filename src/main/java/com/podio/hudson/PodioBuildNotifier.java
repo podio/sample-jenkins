@@ -81,7 +81,7 @@ public class PodioBuildNotifier extends Notifier {
 
 	private static final int APP_ID = 13658;
 
-	protected static final Logger LOGGER = Logger
+	private static final Logger LOGGER = Logger
 			.getLogger(PodioBuildNotifier.class.getName());
 
 	private final String username;
@@ -98,8 +98,6 @@ public class PodioBuildNotifier extends Notifier {
 		this.clientId = clientId;
 		this.clientSecret = clientSecret;
 		this.spaceURL = spaceURL;
-
-		LOGGER.info(username);
 	}
 
 	public String getUsername() {
