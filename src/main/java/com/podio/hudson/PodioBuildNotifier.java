@@ -328,11 +328,11 @@ public class PodioBuildNotifier extends Notifier {
 	public static final class DescriptorImpl extends
 			BuildStepDescriptor<Publisher> {
 
-		private String hostname = "localhost";
+		private String hostname = "api.podio.com";
 
-		private int port = 9090;
+		private int port = 443;
 
-		private boolean ssl = false;
+		private boolean ssl = true;
 
 		public DescriptorImpl() {
 			super(PodioBuildNotifier.class);
