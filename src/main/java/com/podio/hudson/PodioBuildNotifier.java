@@ -83,7 +83,7 @@ public class PodioBuildNotifier extends Notifier {
 
 	private static final int DURATION_FIELD_ID = 174817;
 
-	private static final int APP_ID = 13658;
+	private static final int APP_ID = 16742;
 
 	private final String username;
 	private final String password;
