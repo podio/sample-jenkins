@@ -63,26 +63,27 @@ import com.sun.jersey.api.client.UniformInterfaceException;
 
 public class PodioBuildNotifier extends Notifier {
 
-	private static final int CHANGES_FIELD_ID = 74681;
-
-	private static final int FAILED_TESTS_FIELD_ID = 74282;
-
-	private static final int TOTAL_TESTS_FIELD_ID = 74281;
-
-	private static final int USERS_FIELD_ID = 74280;
-
-	private static final int URL_FIELD_ID = 74670;
-
-	private static final int RESULT_FIELD_ID = 74279;
-
-	private static final int BUILD_NUMBER_FIELD_ID = 74278;
-
-	private static final int DURATION_FIELD_ID = 74671;
-
-	private static final int APP_ID = 13658;
-
+	@SuppressWarnings("unused")
 	private static final Logger LOGGER = Logger
 			.getLogger(PodioBuildNotifier.class.getName());
+
+	private static final int CHANGES_FIELD_ID = 175133;
+
+	private static final int FAILED_TESTS_FIELD_ID = 174816;
+
+	private static final int TOTAL_TESTS_FIELD_ID = 92322;
+
+	private static final int DEVELOPERS_FIELD_ID = 175134;
+
+	private static final int URL_FIELD_ID = 174815;
+
+	private static final int RESULT_FIELD_ID = 92321;
+
+	private static final int BUILD_NUMBER_FIELD_ID = 92319;
+
+	private static final int DURATION_FIELD_ID = 174817;
+
+	private static final int APP_ID = 13658;
 
 	private final String username;
 	private final String password;
@@ -229,7 +230,7 @@ public class PodioBuildNotifier extends Notifier {
 			subValues.add(Collections.<String, Object> singletonMap("value",
 					userId));
 		}
-		fields.add(new FieldValues(USERS_FIELD_ID, subValues));
+		fields.add(new FieldValues(DEVELOPERS_FIELD_ID, subValues));
 		if (totalTestCases != null) {
 			fields.add(new FieldValues(TOTAL_TESTS_FIELD_ID, "value",
 					totalTestCases));
