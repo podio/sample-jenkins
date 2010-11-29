@@ -180,11 +180,11 @@ public class PodioBuildNotifier extends Notifier {
 				}
 			}
 		} else if (!oldFailed && build.getResult() != Result.SUCCESS) {
-			String text = "Build " + build.getId()
+			String text = "Build " + build.getNumber()
 					+ " did not succeed with the result "
 					+ build.getResult().toString().toLowerCase() + ". ";
 			if (testResult != null && testResult.getFailCount() > 0) {
-				text += testResult.getFailCount() + " testcases failed. ";
+				text += testResult.getFailCount() + " testcase(s) failed. ";
 			}
 			text += "Please fix the build.";
 			for (Integer userId : userIds) {
