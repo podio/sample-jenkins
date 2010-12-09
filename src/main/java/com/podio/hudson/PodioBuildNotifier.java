@@ -44,7 +44,7 @@ import com.podio.common.ReferenceType;
 import com.podio.contact.ContactAPI;
 import com.podio.contact.ProfileField;
 import com.podio.contact.ProfileType;
-import com.podio.item.FieldValues;
+import com.podio.item.FieldValuesUpdate;
 import com.podio.item.ItemAPI;
 import com.podio.item.ItemCreate;
 import com.podio.item.ItemsResponse;
@@ -224,35 +224,34 @@ public class PodioBuildNotifier extends Notifier {
 	private int postBuild(BaseAPI baseAPI, int buildNumber, String result,
 			String url, String changes, Set<Integer> userIds,
 			Integer totalTestCases, Integer failedTestCases, String duration) {
-		List<FieldValues> fields = new ArrayList<FieldValues>();
-		fields.add(new FieldValues(BUILD_NUMBER_FIELD_ID, "value", "Build "
-				+ buildNumber));
-		fields.add(new FieldValues(RESULT_FIELD_ID, "value", result));
-		fields.add(new FieldValues(URL_FIELD_ID, "value", url));
+		List<FieldValuesUpdate> fields = new ArrayList<FieldValuesUpdate>();
+		fields.add(new FieldValuesUpdate(BUILD_NUMBER_FIELD_ID, "value",
+				"Build " + buildNumber));
+		fields.add(new FieldValuesUpdate(RESULT_FIELD_ID, "value", result));
+		fields.add(new FieldValuesUpdate(URL_FIELD_ID, "value", url));
 		if (changes != null) {
-			fields.add(new FieldValues(CHANGES_FIELD_ID, "value", changes));
+			fields.add(new FieldValuesUpdate(CHANGES_FIELD_ID, "value", changes));
 		}
 		List<Map<String, Object>> subValues = new ArrayList<Map<String, Object>>();
 		for (Integer userId : userIds) {
 			subValues.add(Collections.<String, Object> singletonMap("value",
 					userId));
 		}
-		fields.add(new FieldValues(DEVELOPERS_FIELD_ID, subValues));
+		fields.add(new FieldValuesUpdate(DEVELOPERS_FIELD_ID, subValues));
 		if (totalTestCases != null) {
-			fields.add(new FieldValues(TOTAL_TESTS_FIELD_ID, "value",
+			fields.add(new FieldValuesUpdate(TOTAL_TESTS_FIELD_ID, "value",
 					totalTestCases));
 		}
 		if (failedTestCases != null) {
-			fields.add(new FieldValues(FAILED_TESTS_FIELD_ID, "value",
+			fields.add(new FieldValuesUpdate(FAILED_TESTS_FIELD_ID, "value",
 					failedTestCases));
 		}
-		fields.add(new FieldValues(DURATION_FIELD_ID, "value", duration));
+		fields.add(new FieldValuesUpdate(DURATION_FIELD_ID, "value", duration));
 		ItemCreate create = new ItemCreate(Integer.toString(buildNumber),
 				fields, Collections.<Integer> emptyList(),
 				Collections.<String> emptyList());
 
-		int itemId = new ItemAPI(baseAPI).addItem(APP_ID, create, true)
-				.getItemId();
+		int itemId = new ItemAPI(baseAPI).addItem(APP_ID, create, true);
 
 		return itemId;
 	}
