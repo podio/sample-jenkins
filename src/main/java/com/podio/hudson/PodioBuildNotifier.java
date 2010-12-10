@@ -262,7 +262,7 @@ public class PodioBuildNotifier extends Notifier {
 	}
 
 	private SpaceWithOrganization getSpace(BaseAPI baseAPI) {
-		return new SpaceAPI(baseAPI).getByURL(spaceURL);
+		return new SpaceAPI(baseAPI).getSpaceByURL(spaceURL);
 	}
 
 	private Set<Integer> getUserIds(BaseAPI baseAPI, int spaceId,
@@ -373,7 +373,7 @@ public class PodioBuildNotifier extends Notifier {
 
 			try {
 				SpaceWithOrganization space = new SpaceAPI(baseAPI)
-						.getByURL(spaceURL);
+						.getSpaceByURL(spaceURL);
 				return FormValidation.ok("Connection ok, using space "
 						+ space.getName() + " in organization "
 						+ space.getOrganization().getName());
