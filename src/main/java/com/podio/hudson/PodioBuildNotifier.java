@@ -38,7 +38,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
-import com.podio.BaseAPI;
+import com.podio.ResourceFactory;
 import com.podio.common.Reference;
 import com.podio.common.ReferenceType;
 import com.podio.contact.ContactAPI;
@@ -125,10 +125,10 @@ public class PodioBuildNotifier extends Notifier {
 		return BuildStepMonitor.BUILD;
 	}
 
-	private BaseAPI getBaseAPI() {
+	private ResourceFactory getBaseAPI() {
 		DescriptorImpl descriptor = (DescriptorImpl) getDescriptor();
 
-		return new BaseAPI(descriptor.hostname, descriptor.hostname,
+		return new ResourceFactory(descriptor.hostname, descriptor.hostname,
 				descriptor.port, descriptor.ssl, false,
 				new OAuthClientCredentials(clientId, clientSecret),
 				new OAuthUsernameCredentials(username, password));
@@ -137,7 +137,7 @@ public class PodioBuildNotifier extends Notifier {
 	@Override
 	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
 			BuildListener listener) throws InterruptedException, IOException {
-		BaseAPI baseAPI = getBaseAPI();
+		ResourceFactory baseAPI = getBaseAPI();
 
 		String result = StringUtils.capitalize(build.getResult().toString()
 				.toLowerCase());
@@ -211,7 +211,7 @@ public class PodioBuildNotifier extends Notifier {
 		}
 	}
 
-	private Integer getItemId(BaseAPI baseAPI, int buildNumber) {
+	private Integer getItemId(ResourceFactory baseAPI, int buildNumber) {
 		ItemsResponse response = new ItemAPI(baseAPI).getItemsByExternalId(
 				APP_ID, Integer.toString(buildNumber));
 		if (response.getFiltered() != 1) {
@@ -221,7 +221,7 @@ public class PodioBuildNotifier extends Notifier {
 		return response.getItems().get(0).getId();
 	}
 
-	private int postBuild(BaseAPI baseAPI, int buildNumber, String result,
+	private int postBuild(ResourceFactory baseAPI, int buildNumber, String result,
 			String url, String changes, Set<Integer> userIds,
 			Integer totalTestCases, Integer failedTestCases, String duration) {
 		List<FieldValuesUpdate> fields = new ArrayList<FieldValuesUpdate>();
@@ -261,11 +261,11 @@ public class PodioBuildNotifier extends Notifier {
 		return true;
 	}
 
-	private SpaceWithOrganization getSpace(BaseAPI baseAPI) {
+	private SpaceWithOrganization getSpace(ResourceFactory baseAPI) {
 		return new SpaceAPI(baseAPI).getSpaceByURL(spaceURL);
 	}
 
-	private Set<Integer> getUserIds(BaseAPI baseAPI, int spaceId,
+	private Set<Integer> getUserIds(ResourceFactory baseAPI, int spaceId,
 			AbstractBuild<?, ?> build) {
 		Set<Integer> userIds = new HashSet<Integer>();
 
@@ -309,7 +309,7 @@ public class PodioBuildNotifier extends Notifier {
 		return out;
 	}
 
-	private Integer getUserId(BaseAPI baseAPI, int spaceId, User user) {
+	private Integer getUserId(ResourceFactory baseAPI, int spaceId, User user) {
 		UserProperty mailProperty = user.getProperty(Mailer.UserProperty.class);
 		if (mailProperty == null) {
 			return null;
@@ -367,7 +367,7 @@ public class PodioBuildNotifier extends Notifier {
 				@QueryParameter("clientSecret") final String clientSecret,
 				@QueryParameter("spaceURL") final String spaceURL)
 				throws IOException, ServletException {
-			BaseAPI baseAPI = new BaseAPI(hostname, hostname, port, ssl, false,
+			ResourceFactory baseAPI = new ResourceFactory(hostname, hostname, port, ssl, false,
 					new OAuthClientCredentials(clientId, clientSecret),
 					new OAuthUsernameCredentials(username, password));
 
@@ -402,7 +402,7 @@ public class PodioBuildNotifier extends Notifier {
 				return FormValidation.error("Port must be an integer");
 			}
 
-			BaseAPI baseAPI = new BaseAPI(hostname, hostname, portInt, ssl,
+			ResourceFactory baseAPI = new ResourceFactory(hostname, hostname, portInt, ssl,
 					false, null, null);
 
 			try {

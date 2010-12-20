@@ -9,9 +9,9 @@
 	</parent>
 
 	<groupId>com.podio</groupId>
-	<artifactId>podio-publisher</artifactId>
+	<artifactId>hudson</artifactId>
 	<name>Podio Build</name>
-	<version>0.1.0-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<packaging>hpi</packaging>
 
 	<!-- get every artifact through maven.glassfish.org, which proxies all the 
@@ -21,7 +21,25 @@
 			<id>m.g.o-public</id>
 			<url>http://maven.glassfish.org/content/groups/public/</url>
 		</repository>
+		<repository>
+			<id>nexus.podio.com</id>
+			<name>Podio Nexus</name>
+			<url>http://localhost:9191/nexus/content/repositories/releases/</url>
+		</repository>
 	</repositories>
+	<distributionManagement>
+		<repository>
+			<id>nexus</id>
+			<name>Podio Nexus</name>
+			<url>http://localhost:9191/nexus/content/repositories/releases/</url>
+		</repository>
+	</distributionManagement>
+	<licenses>
+		<license>
+			<name>MIT</name>
+			<url>http://creativecommons.org/licenses/MIT/</url>
+		</license>
+	</licenses>
 
 	<pluginRepositories>
 		<pluginRepository>
@@ -33,7 +51,7 @@
 		<dependency>
 			<groupId>com.podio</groupId>
 			<artifactId>api</artifactId>
-			<version>0.2.0-SNAPSHOT</version>
+			<version>0.4.0-SNAPSHOT</version>
 			<type>jar</type>
 			<scope>compile</scope>
 		</dependency>
