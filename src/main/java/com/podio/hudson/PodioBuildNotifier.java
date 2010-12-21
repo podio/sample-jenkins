@@ -58,7 +58,7 @@ import com.podio.task.Task;
 import com.podio.task.TaskAPI;
 import com.podio.task.TaskCreate;
 import com.podio.task.TaskStatus;
-import com.podio.user.UserMini;
+import com.podio.user.UserProfileMini;
 import com.sun.jersey.api.client.UniformInterfaceException;
 
 public class PodioBuildNotifier extends Notifier {
@@ -319,7 +319,7 @@ public class PodioBuildNotifier extends Notifier {
 			return null;
 		}
 
-		List<UserMini> contacts = new ContactAPI(baseAPI).getSpaceContacts(
+		List<UserProfileMini> contacts = new ContactAPI(baseAPI).getSpaceContacts(
 				spaceId, ProfileField.MAIL, mail, 1, null, ProfileType.MINI,
 				null);
 		if (contacts.isEmpty()) {
