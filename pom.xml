@@ -21,11 +21,6 @@
 			<id>m.g.o-public</id>
 			<url>http://maven.glassfish.org/content/groups/public/</url>
 		</repository>
-		<repository>
-			<id>oss.sonatype.org</id>
-			<name>Sonatype OSS Repository</name>
-			<url>https://oss.sonatype.org/content/groups/public/</url>
-		</repository>
 	</repositories>
 	<licenses>
 		<license>
