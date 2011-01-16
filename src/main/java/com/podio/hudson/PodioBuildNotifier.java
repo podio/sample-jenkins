@@ -67,22 +67,6 @@ public class PodioBuildNotifier extends Notifier {
 	private static final Logger LOGGER = Logger
 			.getLogger(PodioBuildNotifier.class.getName());
 
-	private static final int CHANGES_FIELD_ID = 175133;
-
-	private static final int FAILED_TESTS_FIELD_ID = 174816;
-
-	private static final int TOTAL_TESTS_FIELD_ID = 92322;
-
-	private static final int DEVELOPERS_FIELD_ID = 175134;
-
-	private static final int URL_FIELD_ID = 174815;
-
-	private static final int RESULT_FIELD_ID = 92321;
-
-	private static final int BUILD_NUMBER_FIELD_ID = 92319;
-
-	private static final int DURATION_FIELD_ID = 174817;
-
 	private static final int APP_ID = 16742;
 
 	private final String username;
@@ -221,32 +205,32 @@ public class PodioBuildNotifier extends Notifier {
 		return response.getItems().get(0).getId();
 	}
 
-	private int postBuild(ResourceFactory baseAPI, int buildNumber, String result,
-			String url, String changes, Set<Integer> userIds,
+	private int postBuild(ResourceFactory baseAPI, int buildNumber,
+			String result, String url, String changes, Set<Integer> userIds,
 			Integer totalTestCases, Integer failedTestCases, String duration) {
 		List<FieldValuesUpdate> fields = new ArrayList<FieldValuesUpdate>();
-		fields.add(new FieldValuesUpdate(BUILD_NUMBER_FIELD_ID, "value",
-				"Build " + buildNumber));
-		fields.add(new FieldValuesUpdate(RESULT_FIELD_ID, "value", result));
-		fields.add(new FieldValuesUpdate(URL_FIELD_ID, "value", url));
+		fields.add(new FieldValuesUpdate("build-number", "value", "Build "
+				+ buildNumber));
+		fields.add(new FieldValuesUpdate("result", "value", result));
+		fields.add(new FieldValuesUpdate("url", "value", url));
 		if (changes != null) {
-			fields.add(new FieldValuesUpdate(CHANGES_FIELD_ID, "value", changes));
+			fields.add(new FieldValuesUpdate("changes", "value", changes));
 		}
-		List<Map<String, Object>> subValues = new ArrayList<Map<String, Object>>();
+		List<Map<String, ?>> subValues = new ArrayList<Map<String, ?>>();
 		for (Integer userId : userIds) {
 			subValues.add(Collections.<String, Object> singletonMap("value",
 					userId));
 		}
-		fields.add(new FieldValuesUpdate(DEVELOPERS_FIELD_ID, subValues));
+		fields.add(new FieldValuesUpdate("developers", subValues));
 		if (totalTestCases != null) {
-			fields.add(new FieldValuesUpdate(TOTAL_TESTS_FIELD_ID, "value",
+			fields.add(new FieldValuesUpdate("total-testcases", "value",
 					totalTestCases));
 		}
 		if (failedTestCases != null) {
-			fields.add(new FieldValuesUpdate(FAILED_TESTS_FIELD_ID, "value",
+			fields.add(new FieldValuesUpdate("failed-testcases", "value",
 					failedTestCases));
 		}
-		fields.add(new FieldValuesUpdate(DURATION_FIELD_ID, "value", duration));
+		fields.add(new FieldValuesUpdate("duration", "value", duration));
 		ItemCreate create = new ItemCreate(Integer.toString(buildNumber),
 				fields, Collections.<Integer> emptyList(),
 				Collections.<String> emptyList());
@@ -319,9 +303,9 @@ public class PodioBuildNotifier extends Notifier {
 			return null;
 		}
 
-		List<UserProfileMini> contacts = new ContactAPI(baseAPI).getSpaceContacts(
-				spaceId, ProfileField.MAIL, mail, 1, null, ProfileType.MINI,
-				null);
+		List<UserProfileMini> contacts = new ContactAPI(baseAPI)
+				.getSpaceContacts(spaceId, ProfileField.MAIL, mail, 1, null,
+						ProfileType.MINI, null);
 		if (contacts.isEmpty()) {
 			return null;
 		}
@@ -367,9 +351,10 @@ public class PodioBuildNotifier extends Notifier {
 				@QueryParameter("clientSecret") final String clientSecret,
 				@QueryParameter("spaceURL") final String spaceURL)
 				throws IOException, ServletException {
-			ResourceFactory baseAPI = new ResourceFactory(hostname, hostname, port, ssl, false,
-					new OAuthClientCredentials(clientId, clientSecret),
-					new OAuthUsernameCredentials(username, password));
+			ResourceFactory baseAPI = new ResourceFactory(hostname, hostname,
+					port, ssl, false, new OAuthClientCredentials(clientId,
+							clientSecret), new OAuthUsernameCredentials(
+							username, password));
 
 			try {
 				SpaceWithOrganization space = new SpaceAPI(baseAPI)
@@ -402,8 +387,8 @@ public class PodioBuildNotifier extends Notifier {
 				return FormValidation.error("Port must be an integer");
 			}
 
-			ResourceFactory baseAPI = new ResourceFactory(hostname, hostname, portInt, ssl,
-					false, null, null);
+			ResourceFactory baseAPI = new ResourceFactory(hostname, hostname,
+					portInt, ssl, false, null, null);
 
 			try {
 				SystemStatus status = new RootAPI(baseAPI).getStatus();
