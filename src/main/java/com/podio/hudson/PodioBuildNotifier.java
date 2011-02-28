@@ -170,7 +170,7 @@ public class PodioBuildNotifier extends Notifier {
 			for (ProfileMini profile : profiles) {
 				taskAPI.createTaskWithReference(new TaskCreate(text, false,
 						new LocalDate(), profile.getUserId()), new Reference(
-						ReferenceType.ITEM, itemId));
+						ReferenceType.ITEM, itemId), true);
 			}
 		}
 
