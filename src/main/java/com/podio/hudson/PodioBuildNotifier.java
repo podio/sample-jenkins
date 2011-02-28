@@ -43,6 +43,7 @@ import com.podio.common.Reference;
 import com.podio.common.ReferenceType;
 import com.podio.contact.ContactAPI;
 import com.podio.contact.ProfileField;
+import com.podio.contact.ProfileMini;
 import com.podio.contact.ProfileType;
 import com.podio.item.FieldValuesUpdate;
 import com.podio.item.ItemAPI;
@@ -58,7 +59,6 @@ import com.podio.task.Task;
 import com.podio.task.TaskAPI;
 import com.podio.task.TaskCreate;
 import com.podio.task.TaskStatus;
-import com.podio.user.UserProfileMini;
 import com.sun.jersey.api.client.UniformInterfaceException;
 
 public class PodioBuildNotifier extends Notifier {
@@ -110,12 +110,8 @@ public class PodioBuildNotifier extends Notifier {
 	}
 
 	private ResourceFactory getBaseAPI() {
-		DescriptorImpl descriptor = (DescriptorImpl) getDescriptor();
-
-		return new ResourceFactory(descriptor.hostname, descriptor.hostname,
-				descriptor.port, descriptor.ssl, false,
-				new OAuthClientCredentials(clientId, clientSecret),
-				new OAuthUsernameCredentials(username, password));
+		return new ResourceFactory(new OAuthClientCredentials(clientId,
+				clientSecret), new OAuthUsernameCredentials(username, password));
 	}
 
 	@Override
@@ -129,7 +125,7 @@ public class PodioBuildNotifier extends Notifier {
 		SpaceWithOrganization space = getSpace(baseAPI);
 		String url = Mailer.descriptor().getUrl() + build.getParent().getUrl()
 				+ build.getNumber();
-		Set<Integer> userIds = getUserIds(baseAPI, space.getId(), build);
+		Set<ProfileMini> profiles = getProfiles(baseAPI, space.getId(), build);
 
 		Integer totalTestCases = null;
 		Integer failedTestCases = null;
@@ -142,7 +138,7 @@ public class PodioBuildNotifier extends Notifier {
 		String changes = getChangesText(build);
 
 		int itemId = postBuild(baseAPI, build.getNumber(), result, url,
-				changes, userIds, totalTestCases, failedTestCases,
+				changes, profiles, totalTestCases, failedTestCases,
 				build.getDurationString());
 
 		AbstractBuild previousBuild = build.getPreviousBuild();
@@ -171,9 +167,9 @@ public class PodioBuildNotifier extends Notifier {
 				text += testResult.getFailCount() + " testcase(s) failed. ";
 			}
 			text += "Please fix the build.";
-			for (Integer userId : userIds) {
+			for (ProfileMini profile : profiles) {
 				taskAPI.createTaskWithReference(new TaskCreate(text, false,
-						new LocalDate(), userId), new Reference(
+						new LocalDate(), profile.getUserId()), new Reference(
 						ReferenceType.ITEM, itemId));
 			}
 		}
@@ -206,8 +202,9 @@ public class PodioBuildNotifier extends Notifier {
 	}
 
 	private int postBuild(ResourceFactory baseAPI, int buildNumber,
-			String result, String url, String changes, Set<Integer> userIds,
-			Integer totalTestCases, Integer failedTestCases, String duration) {
+			String result, String url, String changes,
+			Set<ProfileMini> profiles, Integer totalTestCases,
+			Integer failedTestCases, String duration) {
 		List<FieldValuesUpdate> fields = new ArrayList<FieldValuesUpdate>();
 		fields.add(new FieldValuesUpdate("build-number", "value", "Build "
 				+ buildNumber));
@@ -217,9 +214,9 @@ public class PodioBuildNotifier extends Notifier {
 			fields.add(new FieldValuesUpdate("changes", "value", changes));
 		}
 		List<Map<String, ?>> subValues = new ArrayList<Map<String, ?>>();
-		for (Integer userId : userIds) {
+		for (ProfileMini profile : profiles) {
 			subValues.add(Collections.<String, Object> singletonMap("value",
-					userId));
+					profile.getProfileId()));
 		}
 		fields.add(new FieldValuesUpdate("developers", subValues));
 		if (totalTestCases != null) {
@@ -249,30 +246,31 @@ public class PodioBuildNotifier extends Notifier {
 		return new SpaceAPI(baseAPI).getSpaceByURL(spaceURL);
 	}
 
-	private Set<Integer> getUserIds(ResourceFactory baseAPI, int spaceId,
+	private Set<ProfileMini> getProfiles(ResourceFactory baseAPI, int spaceId,
 			AbstractBuild<?, ?> build) {
-		Set<Integer> userIds = new HashSet<Integer>();
+		Set<ProfileMini> profiles = new HashSet<ProfileMini>();
 
 		Set<User> culprits = build.getCulprits();
 		if (culprits.size() > 0) {
 			for (User culprit : culprits) {
-				Integer userId = getUserId(baseAPI, spaceId, culprit);
-				if (userId != null) {
-					userIds.add(userId);
+				ProfileMini profile = getProfile(baseAPI, spaceId, culprit);
+				if (profile != null) {
+					profiles.add(profile);
 				}
 			}
 		}
 		ChangeLogSet<? extends Entry> changeSet = build.getChangeSet();
 		if (changeSet != null) {
 			for (Entry entry : changeSet) {
-				Integer userId = getUserId(baseAPI, spaceId, entry.getAuthor());
-				if (userId != null) {
-					userIds.add(userId);
+				ProfileMini profile = getProfile(baseAPI, spaceId,
+						entry.getAuthor());
+				if (profile != null) {
+					profiles.add(profile);
 				}
 			}
 		}
 
-		return userIds;
+		return profiles;
 	}
 
 	private String getChangesText(AbstractBuild<?, ?> build) {
@@ -293,7 +291,8 @@ public class PodioBuildNotifier extends Notifier {
 		return out;
 	}
 
-	private Integer getUserId(ResourceFactory baseAPI, int spaceId, User user) {
+	private ProfileMini getProfile(ResourceFactory baseAPI, int spaceId,
+			User user) {
 		UserProperty mailProperty = user.getProperty(Mailer.UserProperty.class);
 		if (mailProperty == null) {
 			return null;
@@ -303,14 +302,14 @@ public class PodioBuildNotifier extends Notifier {
 			return null;
 		}
 
-		List<UserProfileMini> contacts = new ContactAPI(baseAPI)
-				.getSpaceContacts(spaceId, ProfileField.MAIL, mail, 1, null,
-						ProfileType.MINI, null);
+		List<ProfileMini> contacts = new ContactAPI(baseAPI).getSpaceContacts(
+				spaceId, ProfileField.MAIL, mail, 1, null, ProfileType.MINI,
+				null);
 		if (contacts.isEmpty()) {
 			return null;
 		}
 
-		return contacts.get(0).getId();
+		return contacts.get(0);
 	}
 
 	@Extension
@@ -351,10 +350,9 @@ public class PodioBuildNotifier extends Notifier {
 				@QueryParameter("clientSecret") final String clientSecret,
 				@QueryParameter("spaceURL") final String spaceURL)
 				throws IOException, ServletException {
-			ResourceFactory baseAPI = new ResourceFactory(hostname, hostname,
-					port, ssl, false, new OAuthClientCredentials(clientId,
-							clientSecret), new OAuthUsernameCredentials(
-							username, password));
+			ResourceFactory baseAPI = new ResourceFactory(
+					new OAuthClientCredentials(clientId, clientSecret),
+					new OAuthUsernameCredentials(username, password));
 
 			try {
 				SpaceWithOrganization space = new SpaceAPI(baseAPI)
@@ -387,8 +385,7 @@ public class PodioBuildNotifier extends Notifier {
 				return FormValidation.error("Port must be an integer");
 			}
 
-			ResourceFactory baseAPI = new ResourceFactory(hostname, hostname,
-					portInt, ssl, false, null, null);
+			ResourceFactory baseAPI = new ResourceFactory(null, null);
 
 			try {
 				SystemStatus status = new RootAPI(baseAPI).getStatus();
