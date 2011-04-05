@@ -1,17 +1,20 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
          xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
   <f:section title="Podio Build">
-    <f:entry title="API hostname" field="hostname">
-      <f:textbox default="api.podio.com"/>
+  <f:entry title="${%Username}" field="username">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="${%Password}" field="password">
+    <f:password />
+  </f:entry>
+    <f:entry title="${%Client Id}" field="clientId">
+      <f:textbox/>
     </f:entry>
-    <f:entry title="API port" field="port">
-      <f:textbox default="443"/>
-    </f:entry>
-    <f:entry title="API SSL" field="ssl">
-      <f:checkbox default="selected"/>
+    <f:entry title="${%Client secret}" field="clientSecret">
+      <f:password/>
     </f:entry>
 	  <f:validateButton
 	   title="${%Validate}" progress="${%Testing...}"
-	   method="validateAPI" with="hostname,port,ssl" />
+	   method="validateAPI" with="username,password,clientId,clientSecret" />
   </f:section>
 </j:jelly>

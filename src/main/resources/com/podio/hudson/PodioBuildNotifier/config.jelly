@@ -1,20 +1,8 @@
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
-  <f:entry title="${%Username}" field="username">
-    <f:textbox />
-  </f:entry>
-  <f:entry title="${%Password}" field="password">
-    <f:password />
-  </f:entry>
-    <f:entry title="${%Client Id}" field="clientId">
-      <f:textbox/>
-    </f:entry>
-    <f:entry title="${%Client secret}" field="clientSecret">
-      <f:password/>
-    </f:entry>
-    <f:entry title="${%Space URL}" field="spaceURL">
+    <f:entry title="${%App Id}" field="appId">
       <f:textbox/>
     </f:entry>
   <f:validateButton
    title="${%Validate}" progress="${%Testing...}"
-   method="validateAuth" with="username,password,clientId,clientSecret,spaceURL" />
+   method="validateAuth" with="appId" />
 </j:jelly>

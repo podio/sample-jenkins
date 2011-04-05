@@ -38,23 +38,19 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
+import com.podio.APIFactory;
 import com.podio.ResourceFactory;
+import com.podio.app.Application;
 import com.podio.common.Reference;
 import com.podio.common.ReferenceType;
-import com.podio.contact.ContactAPI;
 import com.podio.contact.ProfileField;
 import com.podio.contact.ProfileMini;
 import com.podio.contact.ProfileType;
 import com.podio.item.FieldValuesUpdate;
-import com.podio.item.ItemAPI;
 import com.podio.item.ItemCreate;
 import com.podio.item.ItemsResponse;
 import com.podio.oauth.OAuthClientCredentials;
 import com.podio.oauth.OAuthUsernameCredentials;
-import com.podio.root.RootAPI;
-import com.podio.root.SystemStatus;
-import com.podio.space.SpaceAPI;
-import com.podio.space.SpaceWithOrganization;
 import com.podio.task.Task;
 import com.podio.task.TaskAPI;
 import com.podio.task.TaskCreate;
@@ -67,65 +63,42 @@ public class PodioBuildNotifier extends Notifier {
 	private static final Logger LOGGER = Logger
 			.getLogger(PodioBuildNotifier.class.getName());
 
-	private static final int APP_ID = 16742;
-
-	private final String username;
-	private final String password;
-	private final String clientId;
-	private final String clientSecret;
-	private final String spaceURL;
+	private final String appId;
 
 	@DataBoundConstructor
-	public PodioBuildNotifier(String username, String password,
-			String clientId, String clientSecret, String spaceURL) {
-		this.username = username;
-		this.password = password;
-		this.clientId = clientId;
-		this.clientSecret = clientSecret;
-		this.spaceURL = spaceURL;
+	public PodioBuildNotifier(String appId) {
+		this.appId = appId;
 	}
 
-	public String getUsername() {
-		return username;
+	public String getAppId() {
+		return appId;
 	}
 
-	public String getPassword() {
-		return password;
-	}
+	private APIFactory getBaseAPI() {
+		DescriptorImpl descriptor = (DescriptorImpl) getDescriptor();
 
-	public String getClientId() {
-		return clientId;
-	}
-
-	public String getClientSecret() {
-		return clientSecret;
-	}
-
-	public String getSpaceURL() {
-		return spaceURL;
+		return new APIFactory(new ResourceFactory(new OAuthClientCredentials(
+				descriptor.clientId, descriptor.clientSecret),
+				new OAuthUsernameCredentials(descriptor.username,
+						descriptor.password)));
 	}
 
 	public BuildStepMonitor getRequiredMonitorService() {
 		return BuildStepMonitor.BUILD;
 	}
 
-	private ResourceFactory getBaseAPI() {
-		return new ResourceFactory(new OAuthClientCredentials(clientId,
-				clientSecret), new OAuthUsernameCredentials(username, password));
-	}
-
 	@Override
 	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
 			BuildListener listener) throws InterruptedException, IOException {
-		ResourceFactory baseAPI = getBaseAPI();
+		APIFactory apiFactory = getBaseAPI();
 
 		String result = StringUtils.capitalize(build.getResult().toString()
 				.toLowerCase());
 		result = result.replace('_', ' ');
-		SpaceWithOrganization space = getSpace(baseAPI);
+		int spaceId = getSpace(apiFactory);
 		String url = Mailer.descriptor().getUrl() + build.getParent().getUrl()
 				+ build.getNumber();
-		Set<ProfileMini> profiles = getProfiles(baseAPI, space.getId(), build);
+		Set<ProfileMini> profiles = getProfiles(apiFactory, spaceId, build);
 
 		Integer totalTestCases = null;
 		Integer failedTestCases = null;
@@ -137,7 +110,7 @@ public class PodioBuildNotifier extends Notifier {
 
 		String changes = getChangesText(build);
 
-		int itemId = postBuild(baseAPI, build.getNumber(), result, url,
+		int itemId = postBuild(apiFactory, build.getNumber(), result, url,
 				changes, profiles, totalTestCases, failedTestCases,
 				build.getDurationString());
 
@@ -145,10 +118,10 @@ public class PodioBuildNotifier extends Notifier {
 		boolean oldFailed = previousBuild != null
 				&& previousBuild.getResult() != Result.SUCCESS;
 
-		TaskAPI taskAPI = new TaskAPI(baseAPI);
+		TaskAPI taskAPI = apiFactory.getTaskAPI();
 		if (oldFailed && build.getResult() == Result.SUCCESS) {
 			Run firstFailed = getFirstFailure(previousBuild);
-			Integer firstFailedItemId = getItemId(baseAPI,
+			Integer firstFailedItemId = getItemId(apiFactory,
 					firstFailed.getNumber());
 			if (firstFailedItemId != null) {
 				List<Task> tasks = taskAPI.getTasksWithReference(new Reference(
@@ -191,9 +164,9 @@ public class PodioBuildNotifier extends Notifier {
 		}
 	}
 
-	private Integer getItemId(ResourceFactory baseAPI, int buildNumber) {
-		ItemsResponse response = new ItemAPI(baseAPI).getItemsByExternalId(
-				APP_ID, Integer.toString(buildNumber));
+	private Integer getItemId(APIFactory apiFactory, int buildNumber) {
+		ItemsResponse response = apiFactory.getItemAPI().getItemsByExternalId(
+				Integer.parseInt(appId), Integer.toString(buildNumber));
 		if (response.getFiltered() != 1) {
 			return null;
 		}
@@ -201,7 +174,7 @@ public class PodioBuildNotifier extends Notifier {
 		return response.getItems().get(0).getId();
 	}
 
-	private int postBuild(ResourceFactory baseAPI, int buildNumber,
+	private int postBuild(APIFactory apiFactory, int buildNumber,
 			String result, String url, String changes,
 			Set<ProfileMini> profiles, Integer totalTestCases,
 			Integer failedTestCases, String duration) {
@@ -232,7 +205,8 @@ public class PodioBuildNotifier extends Notifier {
 				fields, Collections.<Integer> emptyList(),
 				Collections.<String> emptyList());
 
-		int itemId = new ItemAPI(baseAPI).addItem(APP_ID, create, true);
+		int itemId = apiFactory.getItemAPI().addItem(Integer.parseInt(appId),
+				create, true);
 
 		return itemId;
 	}
@@ -242,18 +216,19 @@ public class PodioBuildNotifier extends Notifier {
 		return true;
 	}
 
-	private SpaceWithOrganization getSpace(ResourceFactory baseAPI) {
-		return new SpaceAPI(baseAPI).getSpaceByURL(spaceURL);
+	private int getSpace(APIFactory apiFactory) {
+		return apiFactory.getAppAPI().getApp(Integer.parseInt(appId))
+				.getSpaceId();
 	}
 
-	private Set<ProfileMini> getProfiles(ResourceFactory baseAPI, int spaceId,
+	private Set<ProfileMini> getProfiles(APIFactory apiFactory, int spaceId,
 			AbstractBuild<?, ?> build) {
 		Set<ProfileMini> profiles = new HashSet<ProfileMini>();
 
 		Set<User> culprits = build.getCulprits();
 		if (culprits.size() > 0) {
 			for (User culprit : culprits) {
-				ProfileMini profile = getProfile(baseAPI, spaceId, culprit);
+				ProfileMini profile = getProfile(apiFactory, spaceId, culprit);
 				if (profile != null) {
 					profiles.add(profile);
 				}
@@ -262,7 +237,7 @@ public class PodioBuildNotifier extends Notifier {
 		ChangeLogSet<? extends Entry> changeSet = build.getChangeSet();
 		if (changeSet != null) {
 			for (Entry entry : changeSet) {
-				ProfileMini profile = getProfile(baseAPI, spaceId,
+				ProfileMini profile = getProfile(apiFactory, spaceId,
 						entry.getAuthor());
 				if (profile != null) {
 					profiles.add(profile);
@@ -291,8 +266,7 @@ public class PodioBuildNotifier extends Notifier {
 		return out;
 	}
 
-	private ProfileMini getProfile(ResourceFactory baseAPI, int spaceId,
-			User user) {
+	private ProfileMini getProfile(APIFactory apiFactory, int spaceId, User user) {
 		UserProperty mailProperty = user.getProperty(Mailer.UserProperty.class);
 		if (mailProperty == null) {
 			return null;
@@ -302,9 +276,9 @@ public class PodioBuildNotifier extends Notifier {
 			return null;
 		}
 
-		List<ProfileMini> contacts = new ContactAPI(baseAPI).getSpaceContacts(
-				spaceId, ProfileField.MAIL, mail, 1, null, ProfileType.MINI,
-				null);
+		List<ProfileMini> contacts = apiFactory.getContactAPI()
+				.getSpaceContacts(spaceId, ProfileField.MAIL, mail, 1, null,
+						ProfileType.MINI, null);
 		if (contacts.isEmpty()) {
 			return null;
 		}
@@ -316,11 +290,13 @@ public class PodioBuildNotifier extends Notifier {
 	public static final class DescriptorImpl extends
 			BuildStepDescriptor<Publisher> {
 
-		private String hostname = "api.podio.com";
+		private String username;
 
-		private int port = 443;
+		private String password;
 
-		private boolean ssl = true;
+		private String clientId;
+
+		private String clientSecret;
 
 		public DescriptorImpl() {
 			super(PodioBuildNotifier.class);
@@ -336,34 +312,30 @@ public class PodioBuildNotifier extends Notifier {
 		public boolean configure(StaplerRequest req, JSONObject formData)
 				throws FormException {
 			req.bindParameters(this);
-			this.hostname = formData.getString("hostname");
-			this.port = formData.getInt("port");
-			this.ssl = formData.getBoolean("ssl");
+			this.username = formData.getString("username");
+			this.password = formData.getString("password");
+			this.clientId = formData.getString("clientId");
+			this.clientSecret = formData.getString("clientSecret");
 			save();
 			return super.configure(req, formData);
 		}
 
 		public FormValidation doValidateAuth(
-				@QueryParameter("username") final String username,
-				@QueryParameter("password") final String password,
-				@QueryParameter("clientId") final String clientId,
-				@QueryParameter("clientSecret") final String clientSecret,
-				@QueryParameter("spaceURL") final String spaceURL)
+				@QueryParameter("appId") final String appId)
 				throws IOException, ServletException {
-			ResourceFactory baseAPI = new ResourceFactory(
+			APIFactory apiFactory = new APIFactory(new ResourceFactory(
 					new OAuthClientCredentials(clientId, clientSecret),
-					new OAuthUsernameCredentials(username, password));
+					new OAuthUsernameCredentials(username, password)));
 
 			try {
-				SpaceWithOrganization space = new SpaceAPI(baseAPI)
-						.getSpaceByURL(spaceURL);
-				return FormValidation.ok("Connection ok, using space "
-						+ space.getName() + " in organization "
-						+ space.getOrganization().getName());
+				Application app = apiFactory.getAppAPI().getApp(
+						Integer.parseInt(appId));
+				return FormValidation.ok("Connection ok, using app "
+						+ app.getConfiguration().getName());
 			} catch (UniformInterfaceException e) {
 				if (e.getResponse().getStatus() == 404) {
-					return FormValidation.error("No space found with the URL "
-							+ spaceURL);
+					return FormValidation.error("No app found with the id "
+							+ appId);
 				} else {
 					return FormValidation.error("Invalid username or password");
 				}
@@ -374,24 +346,19 @@ public class PodioBuildNotifier extends Notifier {
 		}
 
 		public FormValidation doValidateAPI(
-				@QueryParameter("hostname") final String hostname,
-				@QueryParameter("port") final String port,
-				@QueryParameter("ssl") final boolean ssl) throws IOException,
-				ServletException {
-			int portInt;
-			try {
-				portInt = Integer.parseInt(port);
-			} catch (NumberFormatException e) {
-				return FormValidation.error("Port must be an integer");
-			}
-
-			ResourceFactory baseAPI = new ResourceFactory(null, null);
+				@QueryParameter("username") final String username,
+				@QueryParameter("password") final String password,
+				@QueryParameter("clientId") final String clientId,
+				@QueryParameter("clientSecret") final String clientSecret)
+				throws IOException, ServletException {
+			APIFactory baseAPI = new APIFactory(new ResourceFactory(
+					new OAuthClientCredentials(clientId, clientSecret),
+					new OAuthUsernameCredentials(username, password)));
 
 			try {
-				SystemStatus status = new RootAPI(baseAPI).getStatus();
+				String name = baseAPI.getUserAPI().getProfile().getName();
 				return FormValidation
-						.ok("Connection validated, running API version "
-								+ status.getVersion());
+						.ok("Connection validated, logged in as " + name);
 			} catch (Exception e) {
 				e.printStackTrace();
 				return FormValidation.error("Invalid hostname, port or ssl");
@@ -409,28 +376,36 @@ public class PodioBuildNotifier extends Notifier {
 			return true;
 		}
 
-		public String getHostname() {
-			return hostname;
+		public String getUsername() {
+			return username;
 		}
 
-		public void setHostname(String hostname) {
-			this.hostname = hostname;
+		public void setUsername(String username) {
+			this.username = username;
 		}
 
-		public int getPort() {
-			return port;
+		public String getPassword() {
+			return password;
 		}
 
-		public void setPort(int port) {
-			this.port = port;
+		public void setPassword(String password) {
+			this.password = password;
 		}
 
-		public boolean isSsl() {
-			return ssl;
+		public String getClientId() {
+			return clientId;
 		}
 
-		public void setSsl(boolean ssl) {
-			this.ssl = ssl;
+		public void setClientId(String clientId) {
+			this.clientId = clientId;
+		}
+
+		public String getClientSecret() {
+			return clientSecret;
+		}
+
+		public void setClientSecret(String clientSecret) {
+			this.clientSecret = clientSecret;
 		}
 	}
 }
