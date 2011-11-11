@@ -16,6 +16,7 @@ import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.tasks.Mailer;
 import hudson.tasks.Mailer.UserProperty;
+import hudson.tasks.junit.CaseResult;
 import hudson.tasks.test.AbstractTestResultAction;
 import hudson.util.FormValidation;
 
@@ -133,17 +134,25 @@ public class PodioBuildNotifier extends Notifier {
 				}
 			}
 		} else if (!oldFailed && build.getResult() != Result.SUCCESS) {
-			String text = "Build " + build.getNumber()
-					+ " did not succeed with the result "
-					+ build.getResult().toString().toLowerCase() + ". ";
+			String text = "Build " + build.getNumber() + " "
+					+ build.getResult().toString().toLowerCase() + "";
+
+			String description = null;
 			if (testResult != null && testResult.getFailCount() > 0) {
-				text += testResult.getFailCount() + " testcase(s) failed. ";
+				description += testResult.getFailCount()
+						+ " testcase(s) failed:\n";
+
+				List<CaseResult> failedTests = testResult.getFailedTests();
+				for (CaseResult caseResult : failedTests) {
+					description += caseResult.getDisplayName() + "\n";
+				}
 			}
-			text += "Please fix the build.";
+
 			for (ProfileMini profile : profiles) {
-				taskAPI.createTaskWithReference(new TaskCreate(text, false,
-						new LocalDate(), profile.getUserId()), new Reference(
-						ReferenceType.ITEM, itemId), true);
+				taskAPI.createTaskWithReference(
+						new TaskCreate(text, description, false,
+								new LocalDate(), profile.getUserId()),
+						new Reference(ReferenceType.ITEM, itemId), true);
 			}
 		}
 
@@ -357,8 +366,8 @@ public class PodioBuildNotifier extends Notifier {
 
 			try {
 				String name = baseAPI.getUserAPI().getProfile().getName();
-				return FormValidation
-						.ok("Connection validated, logged in as " + name);
+				return FormValidation.ok("Connection validated, logged in as "
+						+ name);
 			} catch (Exception e) {
 				e.printStackTrace();
 				return FormValidation.error("Invalid hostname, port or ssl");
