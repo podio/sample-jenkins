@@ -4,14 +4,14 @@
 	<parent>
 		<groupId>org.jvnet.hudson.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.395</version>
+		<version>1.392</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
 	<groupId>com.podio</groupId>
 	<artifactId>hudson</artifactId>
 	<name>Podio Build</name>
-	<version>1.2.1</version>
+	<version>1.2.2</version>
 	<packaging>hpi</packaging>
 
 	<!-- get every artifact through maven.glassfish.org, which proxies all the 
@@ -39,7 +39,7 @@
 		<dependency>
 			<groupId>com.podio</groupId>
 			<artifactId>api</artifactId>
-			<version>0.7.1</version>
+			<version>0.7.4-SNAPSHOT</version>
 			<type>jar</type>
 			<scope>compile</scope>
 		</dependency>

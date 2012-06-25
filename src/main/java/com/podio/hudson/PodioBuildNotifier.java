@@ -41,13 +41,16 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import com.podio.APIFactory;
 import com.podio.ResourceFactory;
+import com.podio.app.AppAPI;
 import com.podio.app.Application;
 import com.podio.common.Reference;
 import com.podio.common.ReferenceType;
+import com.podio.contact.ContactAPI;
 import com.podio.contact.ProfileField;
 import com.podio.contact.ProfileMini;
 import com.podio.contact.ProfileType;
 import com.podio.item.FieldValuesUpdate;
+import com.podio.item.ItemAPI;
 import com.podio.item.ItemCreate;
 import com.podio.item.ItemsResponse;
 import com.podio.oauth.OAuthClientCredentials;
@@ -56,6 +59,7 @@ import com.podio.task.Task;
 import com.podio.task.TaskAPI;
 import com.podio.task.TaskCreate;
 import com.podio.task.TaskStatus;
+import com.podio.user.UserAPI;
 import com.sun.jersey.api.client.UniformInterfaceException;
 
 public class PodioBuildNotifier extends Notifier {
@@ -119,7 +123,7 @@ public class PodioBuildNotifier extends Notifier {
 		boolean oldFailed = previousBuild != null
 				&& previousBuild.getResult() != Result.SUCCESS;
 
-		TaskAPI taskAPI = apiFactory.getTaskAPI();
+		TaskAPI taskAPI = apiFactory.getAPI(TaskAPI.class);
 		if (oldFailed && build.getResult() == Result.SUCCESS) {
 			Run firstFailed = getFirstFailure(previousBuild);
 			Integer firstFailedItemId = getItemId(apiFactory,
@@ -174,8 +178,9 @@ public class PodioBuildNotifier extends Notifier {
 	}
 
 	private Integer getItemId(APIFactory apiFactory, int buildNumber) {
-		ItemsResponse response = apiFactory.getItemAPI().getItemsByExternalId(
-				Integer.parseInt(appId), Integer.toString(buildNumber));
+		ItemsResponse response = apiFactory.getAPI(ItemAPI.class)
+				.getItemsByExternalId(Integer.parseInt(appId),
+						Integer.toString(buildNumber));
 		if (response.getFiltered() != 1) {
 			return null;
 		}
@@ -214,8 +219,8 @@ public class PodioBuildNotifier extends Notifier {
 				fields, Collections.<Integer> emptyList(),
 				Collections.<String> emptyList());
 
-		int itemId = apiFactory.getItemAPI().addItem(Integer.parseInt(appId),
-				create, true);
+		int itemId = apiFactory.getAPI(ItemAPI.class).addItem(
+				Integer.parseInt(appId), create, true);
 
 		return itemId;
 	}
@@ -226,7 +231,7 @@ public class PodioBuildNotifier extends Notifier {
 	}
 
 	private int getSpace(APIFactory apiFactory) {
-		return apiFactory.getAppAPI().getApp(Integer.parseInt(appId))
+		return apiFactory.getAPI(AppAPI.class).getApp(Integer.parseInt(appId))
 				.getSpaceId();
 	}
 
@@ -285,7 +290,7 @@ public class PodioBuildNotifier extends Notifier {
 			return null;
 		}
 
-		List<ProfileMini> contacts = apiFactory.getContactAPI()
+		List<ProfileMini> contacts = apiFactory.getAPI(ContactAPI.class)
 				.getSpaceContacts(spaceId, ProfileField.MAIL, mail, 1, null,
 						ProfileType.MINI, null);
 		if (contacts.isEmpty()) {
@@ -337,7 +342,7 @@ public class PodioBuildNotifier extends Notifier {
 					new OAuthUsernameCredentials(username, password)));
 
 			try {
-				Application app = apiFactory.getAppAPI().getApp(
+				Application app = apiFactory.getAPI(AppAPI.class).getApp(
 						Integer.parseInt(appId));
 				return FormValidation.ok("Connection ok, using app "
 						+ app.getConfiguration().getName());
@@ -365,7 +370,8 @@ public class PodioBuildNotifier extends Notifier {
 					new OAuthUsernameCredentials(username, password)));
 
 			try {
-				String name = baseAPI.getUserAPI().getProfile().getName();
+				String name = baseAPI.getAPI(UserAPI.class).getProfile()
+						.getName();
 				return FormValidation.ok("Connection validated, logged in as "
 						+ name);
 			} catch (Exception e) {
