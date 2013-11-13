@@ -2,24 +2,23 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-		<groupId>org.jvnet.hudson.plugins</groupId>
+		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.392</version>
-		<relativePath>../pom.xml</relativePath>
+		<version>1.445</version>
 	</parent>
 
 	<groupId>com.podio</groupId>
-	<artifactId>hudson</artifactId>
-	<name>Podio Build</name>
+	<artifactId>podio-build-notifier</artifactId>
+	<name>Podio Build Notifier</name>
 	<version>1.2.2</version>
 	<packaging>hpi</packaging>
 
-	<!-- get every artifact through maven.glassfish.org, which proxies all the 
+	<!-- get every artifact through maven.glassfish.org, which proxies all the
 		artifacts that we need -->
 	<repositories>
 		<repository>
-			<id>m.g.o-public</id>
-			<url>http://maven.glassfish.org/content/groups/public/</url>
+			<id>repo.jenkins-ci.org</id>
+			<url>http://repo.jenkins-ci.org/public/</url>
 		</repository>
 	</repositories>
 	<licenses>
@@ -31,15 +30,15 @@
 
 	<pluginRepositories>
 		<pluginRepository>
-			<id>m.g.o-public</id>
-			<url>http://maven.glassfish.org/content/groups/public/</url>
+			<id>repo.jenkins-ci.org</id>
+			<url>http://repo.jenkins-ci.org/public/</url>
 		</pluginRepository>
 	</pluginRepositories>
 	<dependencies>
 		<dependency>
 			<groupId>com.podio</groupId>
 			<artifactId>api</artifactId>
-			<version>0.7.4-SNAPSHOT</version>
+			<version>0.7.4</version>
 			<type>jar</type>
 			<scope>compile</scope>
 		</dependency>
