@@ -107,7 +107,7 @@ public class PodioBuildNotifier extends Notifier {
 
 		Integer totalTestCases = null;
 		Integer failedTestCases = null;
-		AbstractTestResultAction testResult = build.getTestResultAction();
+		AbstractTestResultAction testResult = build.getAction(AbstractTestResultAction.class);
 		if (testResult != null) {
 			totalTestCases = testResult.getTotalCount();
 			failedTestCases = testResult.getFailCount();
@@ -208,11 +208,11 @@ public class PodioBuildNotifier extends Notifier {
 		fields.add(new FieldValuesUpdate("developers", subValues));
 		if (totalTestCases != null) {
 			fields.add(new FieldValuesUpdate("total-testcases", "value",
-					totalTestCases));
+					Integer.toString(totalTestCases)));
 		}
 		if (failedTestCases != null) {
 			fields.add(new FieldValuesUpdate("failed-testcases", "value",
-					failedTestCases));
+                    Integer.toString(failedTestCases)));
 		}
 		fields.add(new FieldValuesUpdate("duration", "value", duration));
 		ItemCreate create = new ItemCreate(Integer.toString(buildNumber),
