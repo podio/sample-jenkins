@@ -10,7 +10,7 @@
 	<groupId>com.podio</groupId>
 	<artifactId>podio-build-notifier</artifactId>
 	<name>Podio Build Notifier</name>
-	<version>1.2.2</version>
+	<version>1.2.3</version>
 	<packaging>hpi</packaging>
 
 	<!-- get every artifact through maven.glassfish.org, which proxies all the
