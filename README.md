@@ -1,3 +1,6 @@
+
+[![Build Status](https://jenkins.bleacherreport.com/job/sample-jenkins-origin-branch1/badge/icon)](https://jenkins.bleacherreport.com/job/sample-jenkins-origin-branch1/)
+
 kdjkfjdkj# New branch
 sahdkasndknadsadsdas
 asdasdsdfdef
